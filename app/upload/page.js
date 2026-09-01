@@ -45,13 +45,7 @@ export default function UploadPage() {
 
   return (
     <>
-      <AppBar
-        action={
-          <a href="/" style={{ color: "#fff", textDecoration: "none", fontWeight: 600 }}>
-            ← Back
-          </a>
-        }
-      />
+      <AppBar action={<a href="/" className="appbar-action">← Back</a>} />
       <main className="container form-page">
         <h2>Upload videos from a CSV file</h2>
         <p className="hint">
@@ -77,15 +71,16 @@ export default function UploadPage() {
           {fileName && <p className="hint">Selected: {fileName}</p>}
         </div>
 
-        <h3 style={{ marginTop: 28 }}>Example file format</h3>
+        <p className="section-label">Example file format</p>
         <pre
           style={{
             background: "#fff",
-            border: "1px solid var(--border)",
+            border: "1px solid var(--line)",
             borderRadius: 12,
             padding: 14,
             overflowX: "auto",
             fontSize: 13,
+            color: "var(--ink)",
           }}
         >
           {sample}

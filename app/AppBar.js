@@ -4,9 +4,15 @@ export default function AppBar({ action }) {
   return (
     <header className="appbar">
       <div className="appbar-inner">
-        <h1>🌾 Farmer Video Finder</h1>
+        <div className="brand">
+          <span className="brand-mark" aria-hidden="true">🌱</span>
+          <div className="brand-text">
+            <span className="brand-title">Farmer Video Finder</span>
+            <span className="brand-tagline">Testimonials by district &amp; product</span>
+          </div>
+        </div>
         {action || (
-          <Link href="/manage" aria-label="Manage entries">
+          <Link href="/manage" className="appbar-action">
             Manage
           </Link>
         )}

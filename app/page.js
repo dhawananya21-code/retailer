@@ -5,6 +5,14 @@ import Link from "next/link";
 import AppBar from "./AppBar";
 import { thumbnailUrl, embedUrl, watchUrl } from "../lib/youtube.js";
 
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true">
+      <path d="M8 5v14l11-7z" fill="currentColor" />
+    </svg>
+  );
+}
+
 export default function HomePage() {
   const [districts, setDistricts] = useState([]);
   const [products, setProducts] = useState([]);
@@ -13,9 +21,10 @@ export default function HomePage() {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState(null); // the video open in the player
-  const [hasDemo, setHasDemo] = useState(false);
 
-  // Load the dropdown options once.
+  const hasFilter = Boolean(district || product);
+
+  // Load the dropdown options once (from the retailer's real district/product lists).
   useEffect(() => {
     fetch("/api/options")
       .then((r) => r.json())
@@ -34,11 +43,7 @@ export default function HomePage() {
     if (product) params.set("product", product);
     fetch(`/api/videos?${params.toString()}`)
       .then((r) => r.json())
-      .then((d) => {
-        const list = d.videos || [];
-        setVideos(list);
-        setHasDemo(list.some((v) => v.is_demo));
-      })
+      .then((d) => setVideos(d.videos || []))
       .catch(() => setVideos([]))
       .finally(() => setLoading(false));
   }, [district, product]);
@@ -47,64 +52,80 @@ export default function HomePage() {
     loadVideos();
   }, [loadVideos]);
 
+  function clearFilters() {
+    setDistrict("");
+    setProduct("");
+  }
+
   return (
     <>
       <AppBar />
       <main className="container">
-        {hasDemo && (
-          <div className="demo-banner">
-            ⚠️ Showing placeholder DEMO videos for testing. These are not real
-            farmer testimonials. Replace them on the Manage page.
-          </div>
-        )}
-
-        <div className="filters">
+        <section className="filters" aria-label="Filter videos">
           <div className="field">
             <label htmlFor="district">District</label>
-            <select
-              id="district"
-              value={district}
-              onChange={(e) => setDistrict(e.target.value)}
-            >
-              <option value="">All districts</option>
-              {districts.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+            <div className="select-wrap">
+              <select
+                id="district"
+                value={district}
+                onChange={(e) => setDistrict(e.target.value)}
+              >
+                <option value="">All districts</option>
+                {districts.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="field">
             <label htmlFor="product">Product</label>
-            <select
-              id="product"
-              value={product}
-              onChange={(e) => setProduct(e.target.value)}
-            >
-              <option value="">All products</option>
-              {products.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+            <div className="select-wrap">
+              <select
+                id="product"
+                value={product}
+                onChange={(e) => setProduct(e.target.value)}
+              >
+                <option value="">All products</option>
+                {products.map((p) => (
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
+        </section>
+
+        <div className="results-head">
+          <span className="result-count">
+            {loading
+              ? "Loading…"
+              : `${videos.length} video${videos.length === 1 ? "" : "s"}`}
+          </span>
+          {hasFilter && (
+            <button className="link-btn" onClick={clearFilters}>
+              Clear filters
+            </button>
+          )}
         </div>
 
-        <p className="result-count">
-          {loading
-            ? "Loading…"
-            : `${videos.length} video${videos.length === 1 ? "" : "s"} found`}
-        </p>
-
-        {!loading && videos.length === 0 ? (
+        {loading ? null : videos.length === 0 ? (
           <div className="empty">
-            <p>No videos match this filter yet.</p>
-            <p>
-              <Link href="/add" className="btn secondary">
-                ➕ Add a video
-              </Link>
+            <div className="empty-icon" aria-hidden="true">🎬</div>
+            <p className="empty-title">No more videos added yet</p>
+            <p className="empty-sub">
+              Use Add New Entry or Upload CSV to add farmer testimonial videos.
             </p>
+            <div className="empty-actions">
+              <Link href="/add" className="btn">
+                Add New Entry
+              </Link>
+              <Link href="/upload" className="btn secondary">
+                Upload CSV
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="cards">
@@ -116,25 +137,26 @@ export default function HomePage() {
                 aria-label={`Play ${v.title}`}
               >
                 <div className="thumb">
-                  <img
-                    src={thumbnailUrl(v.youtube_id)}
-                    alt=""
-                    loading="lazy"
-                  />
-                  <div className="play-badge">
-                    <span>▶</span>
-                  </div>
+                  <img src={thumbnailUrl(v.youtube_id)} alt="" loading="lazy" />
+                  <span className="play" aria-hidden="true">
+                    <PlayIcon />
+                  </span>
                 </div>
                 <div className="card-body">
+                  {v.is_demo && <span className="badge-example">Example</span>}
                   <p className="card-title">{v.title}</p>
-                  <div className="chips">
-                    <span className="chip">{v.district}</span>
-                    <span className="chip">{v.product}</span>
-                    {v.is_demo && <span className="chip demo">DEMO</span>}
-                  </div>
-                  {v.farmer ? (
-                    <p className="card-farmer">👤 {v.farmer}</p>
-                  ) : null}
+                  {(v.district || v.product) && (
+                    <div className="chips">
+                      {v.district && <span className="chip">{v.district}</span>}
+                      {v.product && <span className="chip">{v.product}</span>}
+                    </div>
+                  )}
+                  {v.is_demo && (
+                    <p className="card-note">
+                      Official Shriram content, shown to demonstrate playback.
+                      Not a testimonial from our own retailer network.
+                    </p>
+                  )}
                 </div>
               </button>
             ))}

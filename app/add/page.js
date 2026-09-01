@@ -51,13 +51,7 @@ export default function AddPage() {
 
   return (
     <>
-      <AppBar
-        action={
-          <a href="/" style={{ color: "#fff", textDecoration: "none", fontWeight: 600 }}>
-            ← Back
-          </a>
-        }
-      />
+      <AppBar action={<a href="/" className="appbar-action">← Back</a>} />
       <main className="container form-page">
         <h2>Add a new video</h2>
         {notice && <div className={`notice ${notice.type}`}>{notice.text}</div>}
@@ -71,7 +65,7 @@ export default function AddPage() {
               list="districts"
               value={form.district}
               onChange={set("district")}
-              placeholder="e.g. Nashik"
+              placeholder="Type to search your districts"
               required
             />
             <datalist id="districts">
@@ -89,7 +83,7 @@ export default function AddPage() {
               list="products"
               value={form.product}
               onChange={set("product")}
-              placeholder="e.g. Onion"
+              placeholder="Type to search your products"
               required
             />
             <datalist id="products">
@@ -130,7 +124,7 @@ export default function AddPage() {
               type="text"
               value={form.title}
               onChange={set("title")}
-              placeholder="e.g. Onion farmer shares his results"
+              placeholder="e.g. Cotton farmer shares results this season"
               required
             />
           </div>

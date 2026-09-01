@@ -1,20 +1,11 @@
-import { sql, ensureReady } from "../../../lib/db.js";
+import { districts, products } from "../../../lib/filterOptions.js";
 
 export const dynamic = "force-dynamic";
 
-// Returns the list of districts and products that actually exist in the data,
-// so the dropdowns always match what's available.
+// The District and Product dropdown lists come from the retailer's own
+// canonical list (lib/Districts_Regions_Products.csv, baked into
+// lib/filterOptions.js) — NOT from whatever videos happen to be in the
+// database. This keeps the filters showing only real districts and products.
 export async function GET() {
-  try {
-    await ensureReady();
-    const districts = await sql`SELECT DISTINCT district FROM videos ORDER BY district`;
-    const products = await sql`SELECT DISTINCT product FROM videos ORDER BY product`;
-    return Response.json({
-      districts: districts.map((r) => r.district),
-      products: products.map((r) => r.product),
-    });
-  } catch (err) {
-    console.error("GET /api/options failed:", err);
-    return Response.json({ error: "Could not load options." }, { status: 500 });
-  }
+  return Response.json({ districts, products });
 }
