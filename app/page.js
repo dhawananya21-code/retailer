@@ -81,7 +81,14 @@ export default function HomePage() {
 
   function optionsFor(key) {
     if (key === "month") return options.months;
-    return options[`${key}s`] || [];
+    const list = options[`${key}s`] || [];
+    // Hide the generic "All Crops" / "All India" values from the filter
+    // dropdowns: those videos already appear under every specific crop/region,
+    // and the labels look confusingly like the "All crops"/"All regions"
+    // (no-filter) option. They remain selectable in the Add form.
+    if (key === "crop") return list.filter((v) => v !== "All Crops");
+    if (key === "region") return list.filter((v) => v !== "All India");
+    return list;
   }
 
   return (
