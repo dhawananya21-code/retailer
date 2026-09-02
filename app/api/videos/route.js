@@ -1,22 +1,41 @@
 import { sql, ensureReady } from "../../../lib/db.js";
 import { extractYouTubeId } from "../../../lib/youtube.js";
+import { parseMonth } from "../../../lib/months.js";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/videos?district=Nashik&product=Onion
-// Any filter left blank ("" or "All") is ignored, so it acts as "show all".
+// Split a comma-separated cell ("Potato, Tomato") into a clean list.
+function splitMulti(value) {
+  return String(value || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// GET /api/videos?crop=&region=&language=&product=&month=
+// Any filter left blank is ignored. For crop and region (which can hold several
+// comma-separated values per video) a match means the selected value appears
+// anywhere in that video's list — done with "= ANY(array)".
 export async function GET(request) {
   try {
     await ensureReady();
     const { searchParams } = new URL(request.url);
-    const district = (searchParams.get("district") || "").trim();
+    const crop = (searchParams.get("crop") || "").trim();
+    const region = (searchParams.get("region") || "").trim();
+    const language = (searchParams.get("language") || "").trim();
     const product = (searchParams.get("product") || "").trim();
+    const monthRaw = (searchParams.get("month") || "").trim();
+    const month = monthRaw ? parseMonth(monthRaw) : null;
 
     const rows = await sql`
-      SELECT id, district, product, farmer, youtube_url, youtube_id, title, is_demo
+      SELECT id, youtube_url, youtube_id, product, crop, crops, region, regions,
+             language, product_code, month, is_demo
       FROM videos
-      WHERE (${district} = '' OR district = ${district})
+      WHERE (${crop} = '' OR ${crop} = ANY(crops))
+        AND (${region} = '' OR ${region} = ANY(regions))
+        AND (${language} = '' OR language = ${language})
         AND (${product} = '' OR product = ${product})
+        AND (${month === null} OR month = ${month})
       ORDER BY created_at DESC, id DESC
     `;
     return Response.json({ videos: rows });
@@ -26,24 +45,25 @@ export async function GET(request) {
   }
 }
 
-// POST /api/videos  — add one new entry (from the Add New Entry form).
+// POST /api/videos — add one new entry from the Add New Entry form.
 export async function POST(request) {
   try {
     await ensureReady();
     const body = await request.json();
-    const district = (body.district || "").trim();
-    const product = (body.product || "").trim();
-    const farmer = (body.farmer || "").trim();
     const youtube_url = (body.youtube_url || "").trim();
-    const title = (body.title || "").trim();
+    const product = (body.product || "").trim();
+    const crop = (body.crop || "").trim();
+    const region = (body.region || "").trim();
+    const language = (body.language || "").trim();
+    const product_code = (body.product_code || "").trim() || null;
+    const month = parseMonth(body.month);
 
-    if (!district || !product || !youtube_url || !title) {
+    if (!youtube_url || !product) {
       return Response.json(
-        { error: "District, Product, YouTube link and Title are all required." },
+        { error: "YouTube link and Product are required." },
         { status: 400 }
       );
     }
-
     const youtube_id = extractYouTubeId(youtube_url);
     if (!youtube_id) {
       return Response.json(
@@ -52,9 +72,14 @@ export async function POST(request) {
       );
     }
 
+    const crops = splitMulti(crop);
+    const regions = splitMulti(region);
+
     const [row] = await sql`
-      INSERT INTO videos (district, product, farmer, youtube_url, youtube_id, title, is_demo)
-      VALUES (${district}, ${product}, ${farmer}, ${youtube_url}, ${youtube_id}, ${title}, FALSE)
+      INSERT INTO videos
+        (youtube_url, youtube_id, product, crop, crops, region, regions, language, product_code, month, is_demo)
+      VALUES
+        (${youtube_url}, ${youtube_id}, ${product}, ${crop}, ${crops}, ${region}, ${regions}, ${language}, ${product_code}, ${month}, FALSE)
       RETURNING id
     `;
     return Response.json({ ok: true, id: row.id });

@@ -1,24 +1,37 @@
 import { sql, ensureReady } from "../../../lib/db.js";
 import { extractYouTubeId } from "../../../lib/youtube.js";
 import { parseCsv } from "../../../lib/csv.js";
+import { parseMonth } from "../../../lib/months.js";
 
 export const dynamic = "force-dynamic";
 
-// Maps flexible header names to our fields, so the CSV isn't fussy about
-// exact spelling ("youtube", "youtube_url", "link", "video" all work).
-function pickHeaderIndexes(header) {
+const isNA = (v) => {
+  const t = (v || "").trim();
+  return t === "" || t.toUpperCase() === "#N/A";
+};
+const clean = (v) => (isNA(v) ? "" : String(v).trim());
+const splitMulti = (v) =>
+  clean(v)
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+// Maps flexible header names to our fields.
+function headerIndexes(header) {
   const norm = header.map((h) => h.trim().toLowerCase());
   const find = (names) => norm.findIndex((h) => names.includes(h));
   return {
-    district: find(["district"]),
-    product: find(["product", "crop"]),
-    farmer: find(["farmer", "village", "farmer or village", "farmer/village", "name"]),
-    youtube: find(["youtube", "youtube_url", "youtube link", "link", "url", "video"]),
-    title: find(["title", "description", "short title"]),
+    youtube: find(["youtube link", "youtube", "youtube_url", "link", "url", "video"]),
+    product: find(["product"]),
+    crop: find(["crop", "crops"]),
+    region: find(["region", "regions", "state"]),
+    language: find(["language", "lang"]),
+    product_code: find(["product code", "product_code", "code"]),
+    month: find(["month"]),
   };
 }
 
-// POST /api/upload  — body is raw CSV text. First row must be the header.
+// POST /api/upload — body is raw CSV text (same columns as the source dataset).
 export async function POST(request) {
   try {
     await ensureReady();
@@ -35,12 +48,12 @@ export async function POST(request) {
       );
     }
 
-    const idx = pickHeaderIndexes(rows[0]);
-    if (idx.district < 0 || idx.product < 0 || idx.youtube < 0 || idx.title < 0) {
+    const idx = headerIndexes(rows[0]);
+    if (idx.youtube < 0 || idx.product < 0) {
       return Response.json(
         {
           error:
-            "Missing required columns. The header must include: district, product, youtube (link), title. An optional farmer/village column is also supported.",
+            "Missing required columns. The header must include a YouTube link column and a Product column. Optional: Crop, Region, Language, Product Code, Month.",
         },
         { status: 400 }
       );
@@ -48,17 +61,19 @@ export async function POST(request) {
 
     let added = 0;
     const skipped = [];
+    const batch = [];
     for (let r = 1; r < rows.length; r++) {
       const cells = rows[r];
-      const get = (i) => (i >= 0 && cells[i] != null ? cells[i].trim() : "");
-      const district = get(idx.district);
-      const product = get(idx.product);
-      const farmer = get(idx.farmer);
-      const youtube_url = get(idx.youtube);
-      const title = get(idx.title);
+      const get = (i) => (i >= 0 && cells[i] != null ? cells[i] : "");
+      const youtube_url = clean(get(idx.youtube));
+      const product = clean(get(idx.product));
 
-      if (!district || !product || !youtube_url || !title) {
-        skipped.push({ row: r + 1, reason: "missing a required value" });
+      // Ignore fully blank rows silently; report rows that have data but no link.
+      const hasData = youtube_url || product || clean(get(idx.crop)) || clean(get(idx.region));
+      if (!hasData) continue;
+
+      if (!youtube_url || !product) {
+        skipped.push({ row: r + 1, reason: "missing YouTube link or Product" });
         continue;
       }
       const youtube_id = extractYouTubeId(youtube_url);
@@ -67,11 +82,29 @@ export async function POST(request) {
         continue;
       }
 
-      await sql`
-        INSERT INTO videos (district, product, farmer, youtube_url, youtube_id, title, is_demo)
-        VALUES (${district}, ${product}, ${farmer}, ${youtube_url}, ${youtube_id}, ${title}, FALSE)
-      `;
+      batch.push({
+        youtube_url,
+        youtube_id,
+        product,
+        crop: clean(get(idx.crop)),
+        crops: splitMulti(get(idx.crop)),
+        region: clean(get(idx.region)),
+        regions: splitMulti(get(idx.region)),
+        language: clean(get(idx.language)),
+        product_code: clean(get(idx.product_code)) || null,
+        month: parseMonth(get(idx.month)),
+        is_demo: false,
+      });
       added++;
+    }
+
+    for (let i = 0; i < batch.length; i += 100) {
+      const chunk = batch.slice(i, i + 100);
+      await sql`INSERT INTO videos ${sql(
+        chunk,
+        "youtube_url", "youtube_id", "product", "crop", "crops",
+        "region", "regions", "language", "product_code", "month", "is_demo"
+      )}`;
     }
 
     return Response.json({ ok: true, added, skipped });

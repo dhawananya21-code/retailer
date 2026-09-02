@@ -8,7 +8,7 @@ export default function AppBar({ action }) {
           <span className="brand-mark" aria-hidden="true">🌱</span>
           <div className="brand-text">
             <span className="brand-title">Farmer Video Finder</span>
-            <span className="brand-tagline">Testimonials by district &amp; product</span>
+            <span className="brand-tagline">Testimonials by crop, region &amp; language</span>
           </div>
         </div>
         {action || (

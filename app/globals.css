@@ -117,10 +117,10 @@ body {
 .filters {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 12px 12px;
   margin-bottom: 18px;
 }
-@media (max-width: 460px) {
+@media (max-width: 340px) {
   .filters {
     grid-template-columns: 1fr;
   }
@@ -283,6 +283,14 @@ textarea:focus {
   border-radius: 999px;
   background: var(--brand-tint);
   color: var(--brand-tint-ink);
+}
+.chip.alt {
+  background: #eef1f6;
+  color: #37507a;
+}
+.chip.muted {
+  background: #f1f0ec;
+  color: #6b6459;
 }
 .badge-example {
   align-self: flex-start;
