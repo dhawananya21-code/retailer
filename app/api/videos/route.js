@@ -27,12 +27,17 @@ export async function GET(request) {
     const monthRaw = (searchParams.get("month") || "").trim();
     const month = monthRaw ? parseMonth(monthRaw) : null;
 
+    // Videos tagged with these generic values are relevant to every crop /
+    // region, so they always match a specific crop/region selection too.
+    const ALL_CROPS = "All Crops";
+    const ALL_INDIA = "All India";
+
     const rows = await sql`
       SELECT id, youtube_url, youtube_id, product, crop, crops, region, regions,
              language, product_code, month, is_demo
       FROM videos
-      WHERE (${crop} = '' OR ${crop} = ANY(crops))
-        AND (${region} = '' OR ${region} = ANY(regions))
+      WHERE (${crop} = '' OR ${crop} = ANY(crops) OR ${ALL_CROPS} = ANY(crops))
+        AND (${region} = '' OR ${region} = ANY(regions) OR ${ALL_INDIA} = ANY(regions))
         AND (${language} = '' OR language = ${language})
         AND (${product} = '' OR product = ${product})
         AND (${month === null} OR month = ${month})
